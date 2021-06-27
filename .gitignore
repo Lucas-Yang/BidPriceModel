@@ -3,3 +3,5 @@ data_res
 *.h5
 venv
 *.csv
+.idea
+__*
