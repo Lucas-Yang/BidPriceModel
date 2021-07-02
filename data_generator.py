@@ -27,7 +27,7 @@ class DataGenerator(object):
                          ),
                   index=False)
 
-    def pre_func_score(self, price_dict: dict):
+    def pre_func_score(self, price_dict):
         """ 老方案偏差计算， price(t+2)= price(t) * 0.6 + price(t-1) * 0.3 + price(t-2) * 0.1
             备注 T 代表一个一个月份
         :param price_dict:
@@ -42,86 +42,66 @@ class DataGenerator(object):
         t_label_list = []
         mape_list = []
         new_dict = {}
-        for batch_index, batch_price in price_dict.items():
-            main_code = str(batch_price["main_code_index"]) + "_" + str(batch_price["company_name_index"])
+        for tup in price_dict.itertuples():
+            batch_price = tup[1::]
+            main_code = str(batch_price[0])
             if main_code not in new_dict:
-                new_dict[main_code] = [(batch_price["年"], batch_price["月"],
-                                        batch_price["agv_price"])]
+                new_dict[main_code] = [(batch_price[1], batch_price[2],
+                                        batch_price[3], batch_price[4])]
             else:
-                new_dict[main_code].append((batch_price["年"], batch_price["月"],
-                                            batch_price["agv_price"]))
+                new_dict[main_code].append((batch_price[1], batch_price[2],
+                                           batch_price[3], batch_price[4]))
         print("##" * 20, "new-dict", "##" * 20)
         print(new_dict)
         num_main_code_useless = 0
         num_main_code_useful = 0
         for main_code, main_code_price_list in new_dict.items():
-            if len(main_code_price_list) <= 2:
+            # 如果物料只被购买过一次，那么就将该物料剔除
+            if len(main_code_price_list) <= 1:
                 num_main_code_useless += 1
+                continue
             else:
                 num_main_code_useful += 1
                 main_code_price_list.sort()
+                # 移动三期平均
                 for batch_index, batch_price_tuple in enumerate(main_code_price_list):
                     batch_price = batch_price_tuple[2]
 
                     if batch_index == 0:
                         continue
-                    elif 1 <= batch_index <= 2:
+                    elif batch_index == 1:
                         predict_batch_price = main_code_price_list[0][2]
-                        main_code_list.append(main_code.split('_')[0])
-                        company_code_list.append(main_code.split('_')[1])
-                        year_list.append(main_code_price_list[batch_index][0] - main_code_price_list[0][0])
+                        # year_list.append(main_code_price_list[batch_index][0] - main_code_price_list[0][0])
                         t_1_x_list.append(main_code_price_list[0][2])
                         t_2_x_list.append(main_code_price_list[0][2])
                         t_3_x_list.append(main_code_price_list[0][2])
                         t_label_list.append(batch_price)
-                    elif batch_index == 3:
+                    elif batch_index == 2:
                         predict_batch_price = (main_code_price_list[1][2] * 0.6 +
                                                main_code_price_list[0][2] * 0.3) / 0.9
 
-                        main_code_list.append(main_code.split('_')[0])
-                        company_code_list.append(main_code.split('_')[1])
-                        year_list.append(
-                            (main_code_price_list[batch_index][0] - main_code_price_list[0][0]
-                             +
-                             main_code_price_list[batch_index][0] - main_code_price_list[1][0]
-                             ) / 2
-                        )
                         t_1_x_list.append(main_code_price_list[1][2])
                         t_2_x_list.append(main_code_price_list[0][2])
                         t_3_x_list.append(main_code_price_list[0][2])
                         t_label_list.append(batch_price)
-                    elif batch_index > 3:
-                        # print(main_code_price_list)
-                        predict_batch_price = main_code_price_list[batch_index - 2][2] * 0.6 + \
-                                              main_code_price_list[batch_index - 3][2] * 0.3 + \
-                                              main_code_price_list[batch_index - 4][2] * 0.1
-
-                        main_code_list.append(main_code.split('_')[0])
-                        company_code_list.append(main_code.split('_')[1])
-
-                        year_list.append(
-                            (main_code_price_list[batch_index][0] - main_code_price_list[batch_index - 2][0]
-                             +
-                             main_code_price_list[batch_index][0] - main_code_price_list[batch_index - 3][0]
-                             +
-                             main_code_price_list[batch_index][0] - main_code_price_list[batch_index - 4][0]
-                             ) / 3
-                        )
-
-                        t_1_x_list.append(main_code_price_list[batch_index - 2][2])
-                        t_2_x_list.append(main_code_price_list[batch_index - 3][2])
-                        t_3_x_list.append(main_code_price_list[batch_index - 4][2])
-                        t_label_list.append(batch_price)
                     else:
-                        print(batch_index)
-                        continue
+                        # print(main_code_price_list)
+                        predict_batch_price = main_code_price_list[batch_index - 1][2] * 0.6 + \
+                                              main_code_price_list[batch_index - 2][2] * 0.3 + \
+                                              main_code_price_list[batch_index - 3][2] * 0.1
+
+                        t_1_x_list.append(main_code_price_list[batch_index - 1][2])
+                        t_2_x_list.append(main_code_price_list[batch_index - 2][2])
+                        t_3_x_list.append(main_code_price_list[batch_index - 3][2])
+                        t_label_list.append(batch_price)
 
                     # 某些物料波动比较大，待v2版本重新处理数据，当前版本直接丢弃
-                    # if abs((predict_batch_price - batch_price) / batch_price) >= 1:
-                    #    continue
-                    # print(batch_price)
+                    if abs((predict_batch_price - batch_price) / batch_price) >= 2:
+                        continue
+
                     if batch_price == 0:
                         continue
+                    main_code_list.append(main_code)
                     mape_list.append(abs((predict_batch_price - batch_price) / batch_price))
 
         print("usefull_code: ", num_main_code_useful,
@@ -131,30 +111,22 @@ class DataGenerator(object):
 
         df = pd.DataFrame({"t-2": t_1_x_list,
                            "t-3": t_2_x_list,
-                           "t-3": t_3_x_list,
-                           "main_code": main_code_list,
-                           "year_list": year_list,
-                           "company_code": company_code_list,
+                           "t-4": t_3_x_list,
                            "y": t_label_list
                            }
                           )
         df.to_csv(self.res_file, index=False)
 
-    def pick_data(self, obj_name_list=None, company_name=None):
+    def pick_data(self):
         """
         :return:
         """
         single_data_df = self.__df
         # single_data_df.drop(["含税单价", '采购数量'], axis=1, inplace=True)
-        tmp_data = single_data_df.groupby(['main_code_index', "年", "月", "company_name_index"])['agv_price'].mean(). \
-            reset_index(level=None,
-                        drop=False,
-                        name=None,
-                        inplace=False
-                        )
-        tmp_data.to_csv('data_res/temp_data.csv')
-        print(tmp_data.to_dict('index'))
-        self.pre_func_score(tmp_data.to_dict('index'))
+
+        usefull_data_df = self.__df[['main_code_index', "年", "月", 'agv_price', 'total_num']]
+        usefull_data_df.to_csv('data_res/temp_data.csv')
+        self.pre_func_score(usefull_data_df)
         # self.__write_csv(single_data_df, obj_name, company_name)
 
     def pick_obj(self):
@@ -216,19 +188,19 @@ class DataEng(object):
         """
         company_info_dict = {}
         main_code_dict = {}
+        self.data_frame.drop(["税率", "含税总价", "采购方式"], axis=1, inplace=True)
         self.data_frame.replace(np.inf, None, inplace=True)
         self.data_frame = self.data_frame.dropna(axis=0, how='any')
-        self.data_frame.to_csv('./data_res/total.csv')
-        self.data_frame.drop(["税率", "含税总价", "采购方式"], axis=1, inplace=True)
+        self.data_frame.to_csv('./data_res/total.csv', index=False)
         self.data_frame["采购数量"] = self.data_frame["采购数量"].astype(int)
-        self.data_frame["agv_price"] = self.data_frame.groupby(['MainCode', "计划管理统计月份", "单位编码", "单位名称"])['含税单价']. \
+        self.data_frame["agv_price"] = self.data_frame.groupby(['MainCode', "计划管理统计月份"])['含税单价']. \
             transform('mean')
-        self.data_frame["total_num"] = self.data_frame.groupby(['MainCode', "计划管理统计月份", "单位编码", "单位名称"])['采购数量']. \
+        self.data_frame["total_num"] = self.data_frame.groupby(['MainCode', "计划管理统计月份"])['采购数量']. \
             transform('sum')
         print(self.data_frame["agv_price"])
         self.data_frame["agv_price"] = self.data_frame["agv_price"].astype(int)
 
-        self.data_frame.drop(["含税单价", '采购数量'], axis=1, inplace=True)
+        self.data_frame.drop(["含税单价", '采购数量', "单位编码", "单位名称"], axis=1, inplace=True)
         self.data_frame.drop_duplicates(ignore_index=True, inplace=True, keep=False)
         self.__date_eng(self.data_frame)
 
@@ -236,25 +208,23 @@ class DataEng(object):
         ratio = (self.data_frame.isnull().sum() / len(self.data_frame)).sort_values(ascending=False)
         print(ratio)
 
+        """
         company_data = self.data_frame["单位名称"] + ":" + self.data_frame["单位编码"].map(str)
         for index, company_name in enumerate(set(self.data_frame["单位名称"]), start=1):
             company_info_dict[company_name] = index
 
         self.__write_json(company_info_dict, "data_res/company_info.json")
+        """
 
         for index, main_code in enumerate(set(self.data_frame["MainCode"]), start=1):
             main_code_dict[main_code] = index
         self.__write_json(main_code_dict, "data_res/main_code.json")
 
-        self.data_frame["company_name_index"] = self.data_frame["单位名称"].map(company_info_dict)
+        # self.data_frame["company_name_index"] = self.data_frame["单位名称"].map(company_info_dict)
         self.data_frame["main_code_index"] = self.data_frame["MainCode"].map(main_code_dict)
         self.data_frame["season_index"] = self.data_frame["季节"].map({"春季": 1, "夏季": 2, "秋季": 3, "冬季": 4})
         self.data_frame["year_index"] = self.data_frame["年"].map({"2014": 1, "2015": 2, "2016": 3, "2017": 4,
                                                                   "2018": 5, "2019": 6, "2020": 7, "2021": 8})
-        self.data_frame["count_index"] = self.data_frame["月"].map({1: 1, 2: 1, 3: 2, 4: 2,
-                                                                   5: 3, 6: 3, 7: 4, 8: 4,
-                                                                   9: 5, 10: 5, 11: 6, 12: 6
-                                                                   })
 
         train_data = self.data_frame[self.data_frame['计划管理统计月份'] < 201901]
         eval_data = self.data_frame[self.data_frame['计划管理统计月份'] >= 201901]

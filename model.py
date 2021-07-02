@@ -80,10 +80,10 @@ class BidPriceModel(object):
         df = pd.read_csv(train_data_path)
         df_test = pd.read_csv(test_data_path)
 
-        train_x = df[["t-2", "t-3", "t-3", "main_code", "year_list", "company_code"]]
+        train_x = df[["t-2", "t-3", "t-4"]]
         train_y = df["y"]
 
-        test_x = df_test[["t-2", "t-3", "t-4", "main_code", "year_list", "company_code"]]
+        test_x = df_test[["t-2", "t-3", "t-4"]]
         test_y = df_test["y"]
 
         params = {
@@ -146,7 +146,7 @@ class BidPriceModel(object):
         # df = shuffle(df)
         # train_x = df[["company_name_index", "year_index", "月", "season_index", "main_code_index", "count_index"]]
         # train_y = df["agv_price"]
-        train_x = df[["t-1", "t-2", "t-3", "main_code", "year_list", "company_code"]]
+        train_x = df[["t-2", "t-3", "t-4"]]
         train_y = df["y"]
         # df_norm = (y_df - y_df.min()) / (y_df.max() - y_df.min())
         # print(df_norm)
@@ -155,7 +155,7 @@ class BidPriceModel(object):
 
         # test_x = df_test[["company_name_index", "year_index", "月", "season_index", "main_code_index", "count_index"]]
         # test_y = df_test["agv_price"]
-        test_x = df_test[["t-1", "t-2", "t-3", "main_code", "year_list", "company_code"]]
+        test_x = df_test[["t-2", "t-3", "t-4"]]
         test_y = df_test["y"]
 
         test_x, test_y = np.array(test_x), np.array(test_y)
@@ -171,8 +171,8 @@ class BidPriceModel(object):
         model.add(Dense(1))
         model.compile(loss='mape', optimizer='adam', metrics=['mape'])
         model.summary()
-        checkpoint = ModelCheckpoint('best_deep_model1.h5', monitor='mape', verbose=0,
-                                     save_best_only='True', mode='min', period=1)
+        checkpoint = ModelCheckpoint('best_deep_model1.h5', monitor='val_mape', verbose=1,
+                                     save_best_only=True, mode='min', period=1)
 
         model.fit(train_x, train_y, epochs=100, batch_size=8,
                   validation_data=(test_x, test_y), callbacks=[checkpoint])
